@@ -6,9 +6,22 @@ Generates illustrations using Stable Diffusion for key concepts
 import os
 from pathlib import Path
 from typing import List, Dict, Optional
-import torch
-from diffusers import StableDiffusionPipeline
-from PIL import Image
+
+# Try to import torch and diffusers, but don't fail if they're not available
+try:
+    import torch
+    from diffusers import StableDiffusionPipeline
+    STABLE_DIFFUSION_AVAILABLE = True
+except ImportError:
+    STABLE_DIFFUSION_AVAILABLE = False
+    torch = None
+    StableDiffusionPipeline = None
+
+try:
+    from PIL import Image
+except ImportError:
+    # Fallback for systems without PIL
+    Image = None
 
 
 class IllustrationGenerator:
@@ -35,6 +48,12 @@ class IllustrationGenerator:
     def _load_pipeline(self):
         """Load the Stable Diffusion pipeline"""
         if self.pipeline is None:
+            if not STABLE_DIFFUSION_AVAILABLE:
+                print("    Warning: Stable Diffusion dependencies not available")
+                print("    Will use placeholder illustrations instead.")
+                self.pipeline = "placeholder"
+                return
+            
             print("    Loading Stable Diffusion model (this may take a while)...")
             try:
                 # Check if CUDA is available
@@ -144,12 +163,19 @@ class IllustrationGenerator:
         filename = f"illustration_{index:02d}_{self._sanitize_filename(concept)}.png"
         filepath = self.output_dir / filename
         
-        # Create placeholder image
-        img = Image.new('RGB', (self.image_size, self.image_size), color=(100, 150, 200))
-        
-        # You could add text to the image here using PIL ImageDraw if desired
-        
-        img.save(filepath)
+        if Image is not None:
+            # Create placeholder image
+            img = Image.new('RGB', (self.image_size, self.image_size), color=(100, 150, 200))
+            
+            # You could add text to the image here using PIL ImageDraw if desired
+            
+            img.save(filepath)
+        else:
+            # If PIL is not available, create a text file placeholder
+            filepath = self.output_dir / filename.replace('.png', '.txt')
+            with open(filepath, 'w') as f:
+                f.write(f"Placeholder for illustration: {concept}\n")
+                f.write(f"Install PIL/Pillow to generate actual image placeholders.\n")
         
         return {
             'concept': concept,
